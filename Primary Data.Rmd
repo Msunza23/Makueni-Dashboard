@@ -1,0 +1,89 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Read Primary enrollment dataset
+```{r}
+Primary_enrollment <- read.csv("./data/primary_enrollment_sctypesex.csv")
+names(Primary_enrollment)
+```
+```{r}
+primary_long <- Primary_enrollment %>%
+  pivot_longer(cols=public_Boys_2017:private_Girls_2019, names_to = "schooltype_gender_year", values_to = "enrolment")%>%
+separate("schooltype_gender_year", into = c("schooltype", "gender", "year"))
+primary_long
+```
+```{r}
+library(DBI)
+library(RSQLite)
+library(ggplot2)
+#dbCon <- dbConnect(SQLite())
+mycon <-dbConnect(SQLite(), "./data/primary_enrollment_sctypesex.db")
+
+dbWriteTable(mycon, "primary_enrollment_sctypesex", primary_long)
+```
+
+```{r list-tables}
+primaryschools<-dbReadTable(mycon,"primary_enrollment_sctypesex")
+primaryschools
+```
+
+```{r}
+primsummary <- primaryschools %>%
+  group_by(subcounty,gender)%>%
+  summarise(total_enrol = sum(enrolment))
+primsummary
+```
+
+```{r}
+ggplot(primsummary,aes(x=subcounty,y=total_enrol,color=gender, group=gender))+
+  geom_line()
+```
+```{r}
+library(shiny)
+```
+
+
+
+
+#Create Sex and Year Columns
+```{r}
+library(dplyr)
+library(tidyverse)
+Prim.df <- Primary_enrollment %>% 
+pivot_longer(subcounty, names_to = "Category", values_to = "Enrollment")%>%
+mutate("sex" = ifelse(grepl("Boys",Prim.df$Category), "Male",
+                    ifelse(grepl("Girls",Prim.df$Category),"Female", "Other")))%>%
+mutate("Year" = ifelse(grepl("2017",Prim.df$Category), "2017", 
+                      ifelse(grepl("2018",Prim.df$Category), "2018",      
+                             ifelse(grepl("2019",Prim.df$Category),"2019", "Other"))))
+print(Prim.df)
+```
+#Group by & Summarise
+```{r}
+Primary_School_Enrollment.df <- Prim.df%>% group_by(Year, Sex)%>%
+  summarise(
+    tot_enrolment=sum(Enrollment)
+    )
+as.numeric(Primary_School_Enrollment.df$tot_enrolment)
+Primary_School_Enrollment.df
+```
+
+
+```{r}
+cropprod.data <- dbConnect(SQLite(),"../Primary-School-Data/Data/cropproduction_db.db")
+  dbListTables(cropprod.data)
+  hf.crops <- dbGetQuery(conn=cropprod.data,statement = "select * from `hf.crop.combined`;")
+
+```
+
+```{r}
+cropprod.data <- hf.crops%>% group_by(crop_type,subcounty)%>%
+  summarise(
+    tot.Quantity=sum(quantity.MT)
+    )
+as.numeric(cropprod.data$tot.Quantity)
+cropprod.data
+
+```
+
